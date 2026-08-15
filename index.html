@@ -1,246 +1,157 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我们的甜蜜空间</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .glass-card {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 182, 193, 0.3);
+<script>
+    // 1. 设置你的腾讯云后端 API 地址 (请将 YOUR_SERVER_IP 替换为你的真实公网 IP)
+    const API_BASE = 'http://124.223.213.238:8080/api';
+
+    // 内存中的全局数据变量
+    let config = { user1: '加载中...', user2: '加载中...', startDate: '2024-01-01' };
+    let wishes = [
+        { id: 1, title: '一起看一次日出', done: false },
+        { id: 2, title: '做一顿丰盛的大餐', done: true },
+        { id: 3, title: '去一次迪士尼乐园', done: false },
+        { id: 4, title: '看一场深夜电影', done: false },
+        { id: 5, title: '一起拍一组搞怪情侣照', done: false }
+    ];
+    let diaries = [];
+
+    // 从腾讯云 Go 后端拉取情侣配置数据
+    async function loadConfigFromBackend() {
+        try {
+            const res = await fetch(`${API_BASE}/config`);
+            const json = await res.json();
+            if (json.code === 200 && json.data) {
+                config = json.data;
+                renderUI();
+            }
+        } catch (err) {
+            console.error('连接后端失败，回退使用本地缓存:', err);
+            // 访问失败时尝试回退到本地
+            const local = localStorage.getItem('couple_config');
+            if (local) config = JSON.parse(local);
+            renderUI();
         }
-    </style>
-</head>
-<body class="bg-gradient-to-br from-pink-50 via-red-50 to-pink-100 min-h-screen pb-12 font-sans">
-    <!-- 顶栏 -->
-    <header class="glass-card sticky top-0 z-50 px-4 py-3 shadow-sm flex justify-between items-center max-w-2xl mx-auto rounded-b-2xl">
-        <div class="flex items-center space-x-2">
-            <span class="text-2xl">💕</span>
-            <h1 class="text-xl font-bold bg-gradient-to-r from-pink-500 to-rose-500 bg-clip-text text-transparent">我们的情侣空间</h1>
-        </div>
-        <button id="open-settings" class="text-gray-500 hover:text-pink-500 transition p-2">
-            <i class="fas fa-cog text-lg"></i>
-        </button>
-    </header>
+    }
 
-    <main class="max-w-2xl mx-auto px-4 mt-4 space-y-6">
-        <!-- 头部情侣信息卡片 -->
-        <section class="glass-card rounded-3xl p-6 text-center relative overflow-hidden shadow-lg">
-            <div class="flex justify-center items-center space-x-6 relative z-10">
-                <div class="text-center">
-                    <div class="w-16 h-16 rounded-full bg-pink-200 border-2 border-pink-400 flex items-center justify-center text-2xl shadow-inner mx-auto mb-1">👦</div>
-                    <span id="user1-name" class="font-medium text-gray-700 text-sm">男生名称</span>
-                </div>
-                <div class="text-center">
-                    <span class="text-3xl animate-pulse inline-block">💖</span>
-                </div>
-                <div class="text-center">
-                    <div class="w-16 h-16 rounded-full bg-pink-200 border-2 border-pink-400 flex items-center justify-center text-2xl shadow-inner mx-auto mb-1">👧</div>
-                    <span id="user2-name" class="font-medium text-gray-700 text-sm">女生名称</span>
-                </div>
-            </div>
-            
-            <div class="mt-4 pt-4 border-t border-pink-100">
-                <p class="text-gray-500 text-xs">我们在一起已经</p>
-                <div class="text-3xl font-extrabold text-pink-600 my-1">
-                    <span id="days-count">0</span> <span class="text-base font-normal">天</span>
-                </div>
-                <p id="start-date-display" class="text-gray-400 text-xs">起始日：2024-01-01</p>
-            </div>
-        </section>
-
-        <!-- 贴贴互动板块 -->
-        <section class="glass-card rounded-3xl p-5 shadow-sm">
-            <h2 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
-                <i class="fas fa-hand-holding-heart text-pink-500 mr-2"></i>发送甜蜜贴贴
-            </h2>
-            <div class="grid grid-cols-4 gap-2">
-                <button onclick="sendAction('抱抱 🫂')" class="bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-xl py-2 px-1 text-xs font-medium transition flex flex-col items-center">
-                    <span class="text-lg mb-1">🫂</span>抱抱
-                </button>
-                <button onclick="sendAction('亲亲 💋')" class="bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-xl py-2 px-1 text-xs font-medium transition flex flex-col items-center">
-                    <span class="text-lg mb-1">💋</span>亲亲
-                </button>
-                <button onclick="sendAction('摸摸头 🫳')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-xl py-2 px-1 text-xs font-medium transition flex flex-col items-center">
-                    <span class="text-lg mb-1">🫳</span>摸摸头
-                </button>
-                <button onclick="sendAction('想你了 💭')" class="bg-red-100 hover:bg-red-200 text-red-700 rounded-xl py-2 px-1 text-xs font-medium transition flex flex-col items-center">
-                    <span class="text-lg mb-1">💭</span>想你了
-                </button>
-            </div>
-            <div id="action-feed" class="mt-3 text-xs text-center text-pink-500 min-h-[1.25rem] font-medium"></div>
-        </section>
-
-        <!-- 100件浪漫小事清单预览 -->
-        <section class="glass-card rounded-3xl p-5 shadow-sm">
-            <div class="flex justify-between items-center mb-3">
-                <h2 class="text-sm font-bold text-gray-700 flex items-center">
-                    <i class="fas fa-list-check text-pink-500 mr-2"></i>100 件浪漫小事
-                </h2>
-                <span id="wish-progress" class="text-xs font-semibold text-pink-600 bg-pink-100 px-2 py-1 rounded-full">0/5 完成</span>
-            </div>
-            <div id="wish-list" class="space-y-2">
-                <!-- 动态填充小事清单 -->
-            </div>
-        </section>
-
-        <!-- 甜蜜日记记录 -->
-        <section class="glass-card rounded-3xl p-5 shadow-sm">
-            <h2 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
-                <i class="fas fa-book-open text-pink-500 mr-2"></i>时光日记
-            </h2>
-            <div class="space-y-3">
-                <textarea id="diary-input" rows="2" placeholder="记录今天发生的甜甜小事..." class="w-full rounded-2xl border-pink-200 p-3 text-xs focus:ring-pink-400 focus:border-pink-400 border outline-none resize-none"></textarea>
-                <button onclick="addDiary()" class="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl py-2 text-xs font-semibold shadow hover:opacity-95 transition">发布日记</button>
-            </div>
-            <div id="diary-list" class="mt-4 space-y-3">
-                <!-- 动态填充日记列表 -->
-            </div>
-        </section>
-    </main>
-
-    <!-- 设置弹窗 -->
-    <div id="settings-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-xl">
-            <h3 class="font-bold text-gray-800 text-center">空间基础设置</h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-gray-600 mb-1">男生昵称</label>
-                    <input type="text" id="input-user1" class="w-full border rounded-xl p-2 border-gray-200 outline-none focus:border-pink-400">
-                </div>
-                <div>
-                    <label class="block text-gray-600 mb-1">女生昵称</label>
-                    <input type="text" id="input-user2" class="w-full border rounded-xl p-2 border-gray-200 outline-none focus:border-pink-400">
-                </div>
-                <div>
-                    <label class="block text-gray-600 mb-1">在一起的日期</label>
-                    <input type="date" id="input-start-date" class="w-full border rounded-xl p-2 border-gray-200 outline-none focus:border-pink-400">
-                </div>
-            </div>
-            <div class="flex space-x-2 pt-2">
-                <button id="close-settings" class="flex-1 bg-gray-100 text-gray-600 rounded-xl py-2 text-xs font-medium">取消</button>
-                <button id="save-settings" class="flex-1 bg-pink-500 text-white rounded-xl py-2 text-xs font-medium shadow">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // 初始化数据或从本地持久化加载
-        let config = JSON.parse(localStorage.getItem('couple_config')) || {
-            user1: '男主角',
-            user2: '女主角',
-            startDate: '2024-01-01'
-        };
-
-        let wishes = JSON.parse(localStorage.getItem('couple_wishes')) || [
-            { id: 1, title: '一起看一次日出', done: false },
-            { id: 2, title: '做一顿丰盛的大餐', done: true },
-            { id: 3, title: '去一次迪士尼乐园', done: false },
-            { id: 4, title: '看一场深夜电影', done: false },
-            { id: 5, title: '一起拍一组搞怪情侣照', done: false }
-        ];
-
-        let diaries = JSON.parse(localStorage.getItem('couple_diaries')) || [
-            { id: 1, date: '2024-05-20', content: '今天一起去喝了超好喝的奶茶！奶盖很甜，你也很甜~' }
-        ];
-
-        function initUI() {
-            document.getElementById('user1-name').innerText = config.user1;
-            document.getElementById('user2-name').innerText = config.user2;
-            document.getElementById('start-date-display').innerText = `起始日：${config.startDate}`;
-
-            // 计算天数
-            const start = new Date(config.startDate);
-            const today = new Date();
-            const diffTime = Math.abs(today - start);
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            document.getElementById('days-count').innerText = diffDays;
-
-            renderWishes();
-            renderDiaries();
-        }
-
-        function renderWishes() {
-            const listEl = document.getElementById('wish-list');
-            listEl.innerHTML = '';
-            let completed = 0;
-            wishes.forEach(w => {
-                if(w.done) completed++;
-                const item = document.createElement('div');
-                item.className = `flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition ${w.done ? 'bg-pink-50 border-pink-200 text-gray-400 line-through' : 'bg-white border-gray-100 text-gray-700'}`;
-                item.onclick = () => toggleWish(w.id);
-                item.innerHTML = `
-                    <span>${w.title}</span>
-                    <i class="${w.done ? 'fas fa-check-circle text-pink-500' : 'far fa-circle text-gray-300'}"></i>
-                `;
-                listEl.appendChild(item);
+    // 将修改后的配置保存到腾讯云 Go 后端
+    async function saveConfigToBackend(newConfig) {
+        try {
+            const res = await fetch(`${API_BASE}/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newConfig)
             });
-            document.getElementById('wish-progress').innerText = `${completed}/${wishes.length} 完成`;
+            const json = await res.json();
+            if (json.code === 200) {
+                config = newConfig;
+                localStorage.setItem('couple_config', JSON.stringify(config));
+                renderUI();
+                return true;
+            }
+        } catch (err) {
+            alert('保存失败，请检查后端服务是否正常运行！');
+            console.error(err);
         }
+        return false;
+    }
 
-        function toggleWish(id) {
-            wishes = wishes.map(w => w.id === id ? {...w, done: !w.done} : w);
-            localStorage.setItem('couple_wishes', JSON.stringify(wishes));
-            renderWishes();
-        }
+    // 渲染界面 UI
+    function renderUI() {
+        document.getElementById('user1-name').innerText = config.user1 || '男主角';
+        document.getElementById('user2-name').innerText = config.user2 || '女主角';
+        document.getElementById('start-date-display').innerText = `起始日：${config.startDate || '2024-01-01'}`;
 
-        function renderDiaries() {
-            const listEl = document.getElementById('diary-list');
-            listEl.innerHTML = '';
-            diaries.forEach(d => {
-                const item = document.createElement('div');
-                item.className = 'bg-white/70 p-3 rounded-2xl border border-pink-100 text-xs space-y-1';
-                item.innerHTML = `
-                    <div class="text-pink-400 text-[10px]">${d.date}</div>
-                    <div class="text-gray-700">${d.content}</div>
-                `;
-                listEl.appendChild(item);
-            });
-        }
+        // 实时计算相爱天数
+        const start = new Date(config.startDate || '2024-01-01');
+        const today = new Date();
+        const diffTime = Math.abs(today - start);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        document.getElementById('days-count').innerText = isNaN(diffDays) ? 0 : diffDays;
 
-        function addDiary() {
-            const input = document.getElementById('diary-input');
-            const text = input.value.trim();
-            if(!text) return;
-            const newDiary = {
-                id: Date.now(),
-                date: new Date().toISOString().split('T')[0],
-                content: text
-            };
-            diaries.unshift(newDiary);
-            localStorage.setItem('couple_diaries', JSON.stringify(diaries));
-            input.value = '';
-            renderDiaries();
-        }
+        renderWishes();
+        renderDiaries();
+    }
 
-        function sendAction(action) {
-            const feed = document.getElementById('action-feed');
-            feed.innerText = `你发送了一个【${action}】`;
-            setTimeout(() => { feed.innerText = ''; }, 2500);
-        }
+    function renderWishes() {
+        const listEl = document.getElementById('wish-list');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        let completed = 0;
+        wishes.forEach(w => {
+            if (w.done) completed++;
+            const item = document.createElement('div');
+            item.className = `flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition ${w.done ? 'bg-pink-50 border-pink-200 text-gray-400 line-through' : 'bg-white border-gray-100 text-gray-700'}`;
+            item.onclick = () => toggleWish(w.id);
+            item.innerHTML = `
+                <span>${w.title}</span>
+                <i class="${w.done ? 'fas fa-check-circle text-pink-500' : 'far fa-circle text-gray-300'}"></i>
+            `;
+            listEl.appendChild(item);
+        });
+        document.getElementById('wish-progress').innerText = `${completed}/${wishes.length} 完成`;
+    }
 
-        // 弹窗逻辑
-        const modal = document.getElementById('settings-modal');
-        document.getElementById('open-settings').onclick = () => {
-            document.getElementById('input-user1').value = config.user1;
-            document.getElementById('input-user2').value = config.user2;
-            document.getElementById('input-start-date').value = config.startDate;
-            modal.classList.remove('hidden');
+    function toggleWish(id) {
+        wishes = wishes.map(w => w.id === id ? { ...w, done: !w.done } : w);
+        renderWishes();
+    }
+
+    function renderDiaries() {
+        const listEl = document.getElementById('diary-list');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        diaries.forEach(d => {
+            const item = document.createElement('div');
+            item.className = 'bg-white/70 p-3 rounded-2xl border border-pink-100 text-xs space-y-1';
+            item.innerHTML = `
+                <div class="text-pink-400 text-[10px]">${d.date}</div>
+                <div class="text-gray-700">${d.content}</div>
+            `;
+            listEl.appendChild(item);
+        });
+    }
+
+    function addDiary() {
+        const input = document.getElementById('diary-input');
+        const text = input.value.trim();
+        if (!text) return;
+        const newDiary = {
+            id: Date.now(),
+            date: new Date().toISOString().split('T')[0],
+            content: text
         };
-        document.getElementById('close-settings').onclick = () => modal.classList.add('hidden');
-        document.getElementById('save-settings').onclick = () => {
-            config.user1 = document.getElementById('input-user1').value || '男主角';
-            config.user2 = document.getElementById('input-user2').value || '女主角';
-            config.startDate = document.getElementById('input-start-date').value || '2024-01-01';
-            localStorage.setItem('couple_config', JSON.stringify(config));
-            initUI();
+        diaries.unshift(newDiary);
+        input.value = '';
+        renderDiaries();
+    }
+
+    function sendAction(action) {
+        const feed = document.getElementById('action-feed');
+        feed.innerText = `你发送了一个【${action}】`;
+        setTimeout(() => { feed.innerText = ''; }, 2500);
+    }
+
+    // 设置弹窗逻辑
+    const modal = document.getElementById('settings-modal');
+    document.getElementById('open-settings').onclick = () => {
+        document.getElementById('input-user1').value = config.user1 || '';
+        document.getElementById('input-user2').value = config.user2 || '';
+        document.getElementById('input-start-date').value = config.startDate || '';
+        modal.classList.remove('hidden');
+    };
+    document.getElementById('close-settings').onclick = () => modal.classList.add('hidden');
+    
+    document.getElementById('save-settings').onclick = async () => {
+        const newConfig = {
+            user1: document.getElementById('input-user1').value || '男主角',
+            user2: document.getElementById('input-user2').value || '女主角',
+            startDate: document.getElementById('input-start-date').value || '2024-01-01'
+        };
+        // 保存到 Go 后端
+        const success = await saveConfigToBackend(newConfig);
+        if (success) {
             modal.classList.add('hidden');
-        };
+        }
+    };
 
-        initUI();
-    </script>
-</body>
-</html>
+    // 页面载入时请求后端
+    loadConfigFromBackend();
+</script>
